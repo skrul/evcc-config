@@ -1,4 +1,5 @@
 log: ${LOG}
+interval: ${INTERVAL}
 
 mqtt:
   broker: ${MQTT_BROKER}
@@ -93,17 +94,20 @@ chargers:
       jq: (.response.response.charge_state.charging_state == "Charging" 
            and .response.response.charge_state.charger_power > 0)
       timeout: 30s
+      cache: 25s
     enable:
       source: http
       uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/{{if .enable}}charge_start{{else}}charge_stop{{end}}"
       method: POST
       body: ""
       timeout: 30s
+      cache: 25s
     maxcurrent:
       source: http
       uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/set_charging_amps"
       method: POST
       body: '{"charging_amps": "{{.maxcurrent}}"}'
+      timeout: 30s
 
 vehicles:
   - name: tesla
