@@ -1,0 +1,188 @@
+# (set -a; source evcc.env; envsubst < evcc.yaml.template > evcc.yaml; set +a)
+
+log: ${LOG}
+
+mqtt:
+  broker: ${MQTT_BROKER}
+  topic: evcc
+  user: ${MQTT_USER}
+  password: ${MQTT_PASSWORD}
+
+${DISABLE_INFLUX}influx:
+${DISABLE_INFLUX}  url: ${INFLUX_URL}
+${DISABLE_INFLUX}  database: ${INFLUX_DATABASE}
+${DISABLE_INFLUX}  token: ${INFLUX_TOKEN}
+${DISABLE_INFLUX}  org: ${INFLUX_ORG}
+
+site:
+  title: Home # display name for UI
+  meters:
+    grid: my_grid
+    pv:
+      - my_pv
+    battery:
+      - my_battery
+  residualPower: 100
+
+loadpoints:
+  - title: Garage # display name for UI
+    charger: my_charger # charger
+    vehicle: tesla # default vehicle
+
+meters:
+  - name: my_grid
+    type: custom
+    power:
+      source: mqtt
+      topic: ${DONGLE_ID}/inputbank1
+      jq: (-1 * .payload.Ptogrid) + .payload.Ptouser
+      timeout: 30s
+    energy:
+      source: mqtt
+      topic: ${DONGLE_ID}/inputbank1
+      jq: .payload.Einv_day
+      timeout: 30s
+  - name: my_pv
+    type: custom
+    power:
+      source: mqtt
+      topic: ${DONGLE_ID}/inputbank1
+      jq: .payload.Pall
+      timeout: 30s
+    energy:
+      source: mqtt
+      topic: ${DONGLE_ID}/inputbank1
+      jq: .payload.Epv1_day + .payload.Epv2_day + .payload.Epv3_day
+      timeout: 30s
+  - name: my_battery
+    type: custom
+    power:
+      source: mqtt
+      topic: ${DONGLE_ID}/inputbank1
+      jq: (-1 * .payload.Pcharge) + .payload.Pdischarge
+      timeout: 30s
+    soc:
+      source: mqtt
+      topic: ${DONGLE_ID}/inputbank1
+      jq: .payload.SOC
+      timeout: 30s
+    # {"setting": "DischgPowerPercentCMD", "value": 94.0, "from": "homeassistant"}
+    # 1: normal, 2: hold, 3: charge
+    batterymode:
+      source: mqtt
+      topic: ${DONGLE_ID}/update
+      payload: '{"setting": "DischgPowerPercentCMD", "value": {{ if eq .batteryMode 1 }}100{{ else }}0{{ end }}, "from": "evcc"}'
+
+chargers:
+  - name: my_charger
+    type: custom
+    status:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
+      method: GET
+      jq: >
+        if (.response.response.charge_state.charging_state == "Charging" 
+            and .response.response.charge_state.charger_power > 0) then "C"
+        elif (.response.response.charge_state.charging_state == "Stopped") then "B"
+        elif (.response.response.charge_state.charging_state == "NoPower") then "B"
+        elif (.response.response.charge_state.charging_state == "Complete") then "B"
+        else "B" end
+      timeout: 30s
+    enabled:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
+      method: GET
+      jq: (.response.response.charge_state.charging_state == "Charging" 
+           and .response.response.charge_state.charger_power > 0)
+      timeout: 30s
+    enable:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/{{if .enable}}charge_start{{else}}charge_stop{{end}}"
+      method: POST
+      body: ""
+      timeout: 30s
+    maxcurrent:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/set_charging_amps"
+      method: POST
+      body: '{"charging_amps": "{{.maxcurrent}}"}'
+
+vehicles:
+  - name: tesla
+    type: custom
+    title: Tesla Model 3
+    icon: car
+    capacity: 75
+    chargeenable:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/{{if .chargeenable}}charge_start{{else}}charge_stop{{end}}"
+      method: POST
+      body: ""
+    maxcurrent: # set charger max current (A)
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/set_charging_amps"
+      method: POST
+      body: '{"charging_amps": "{{.maxcurrent}}"}'
+    wakeup: # vehicle wake up command
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/wake_up"
+      method: POST
+      body: ""
+    soc:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
+      method: GET
+      jq: .response.response.charge_state.battery_level
+      timeout: 30s 
+    limitsoc:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
+      method: GET
+      jq: .response.response.charge_state.charge_limit_soc
+      timeout: 30s
+    range:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
+      method: GET
+      jq: .response.response.charge_state.battery_range
+      scale: 1.60934
+      timeout: 30s
+    status:
+      source: http
+      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
+      method: GET
+      jq: (if (.response.response.charge_state.charging_state == "Charging") then "C"
+        elif (.response.response.charge_state.charging_state == "Stopped") then "B"
+        elif (.response.response.charge_state.charging_state == "NoPower") then "B"
+        elif (.response.response.charge_state.charging_state == "Complete") then "B" 
+        else "A" end)
+      timeout: 30s 
+
+tariffs:
+  currency: USD
+  grid:
+    type: fixed
+    price: 0.35  # Winter off-peak rate 0.35 (12 AM - 3 PM) 0.40 in Summer
+    zones:
+      # Winter Season (Oct 1-May 31)
+      - days: Mon-Sun
+        hours: 15-16   # 3 PM - 4 PM
+        price: 0.36    # Partial-peak
+      - days: Mon-Sun
+        hours: 16-21   # 4 PM - 9 PM
+        price: 0.38    # Peak
+      - days: Mon-Sun
+        hours: 21-0    # 9 PM - 12 AM (midnight)
+        price: 0.36    # Partial-peak
+
+      # Summer Season (Jun 1-Sep 30) - Keep commented until needed
+      # Change default price to 0.40 when switching to summer
+      # - days: Mon-Sun
+      #   hours: 15-16   # 3 PM - 4 PM
+      #   price: 0.45    # Partial-peak
+      # - days: Mon-Sun
+      #   hours: 16-21   # 4 PM - 9 PM
+      #   price: 0.62    # Peak
+      # - days: Mon-Sun
+      #   hours: 21-0    # 9 PM - 12 AM (midnight)
+      #   price: 0.45    # Partial-peak
