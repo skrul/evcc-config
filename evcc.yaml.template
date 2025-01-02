@@ -1,5 +1,3 @@
-# (set -a; source evcc.env; envsubst < evcc.yaml.template > evcc.yaml; set +a)
-
 log: ${LOG}
 
 mqtt:
