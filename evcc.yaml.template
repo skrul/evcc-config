@@ -165,31 +165,27 @@ vehicles:
 tariffs:
   currency: USD
   grid:
-    type: fixed
-    price: 0.35  # Winter off-peak rate 0.35 (12 AM - 3 PM) 0.40 in Summer
-    zones:
-      # Winter Season (Oct 1-May 31)
-      - days: Mon-Sun
-        hours: 15-16   # 3 PM - 4 PM
-        price: 0.36    # Partial-peak
-      - days: Mon-Sun
-        hours: 16-21   # 4 PM - 9 PM
-        price: 0.38    # Peak
-      - days: Mon-Sun
-        hours: 21-0    # 9 PM - 12 AM (midnight)
-        price: 0.36    # Partial-peak
-
-      # Summer Season (Jun 1-Sep 30) - Keep commented until needed
-      # Change default price to 0.40 when switching to summer
-      # - days: Mon-Sun
-      #   hours: 15-16   # 3 PM - 4 PM
-      #   price: 0.45    # Partial-peak
-      # - days: Mon-Sun
-      #   hours: 16-21   # 4 PM - 9 PM
-      #   price: 0.62    # Peak
-      # - days: Mon-Sun
-      #   hours: 21-0    # 9 PM - 12 AM (midnight)
-      #   price: 0.45    # Partial-peak
+    type: template
+    template: energy-charts-api
+    formula: |
+      base := 0.35;
+      if ts.Month() >= 6 && ts.Month() <= 9 {
+        base = 0.40;
+        if ts.Hour() >= 15 && ts.Hour() < 16 {
+          base = 0.45
+        } else if ts.Hour() >= 16 && ts.Hour() < 21 {
+          base = 0.62
+        } else if ts.Hour() >= 21 {
+          base = 0.45
+        }
+      } else if ts.Hour() >= 15 && ts.Hour() < 16 {
+        base = 0.36
+      } else if ts.Hour() >= 16 && ts.Hour() < 21 {
+        base = 0.38
+      } else if ts.Hour() >= 21 {
+        base = 0.36
+      };
+      base
 
 messaging:
   events:
