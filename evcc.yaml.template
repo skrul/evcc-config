@@ -98,12 +98,30 @@ chargers:
       timeout: 30s
       cache: 25s
     enable:
-      source: http
-      uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/{{if .enable}}charge_start{{else}}charge_stop{{end}}"
-      method: POST
-      body: ""
-      timeout: 30s
-      cache: 25s
+      source: switch
+      - case: 0
+        set:
+          source: sequence
+          set:
+          - source: http
+            uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/charge_stop"
+            method: POST
+            body: ""
+            timeout: 30s
+            cache: 25s
+          - source: http
+            uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/set_charging_amps"
+            method: POST
+            body: '{"charging_amps": "5"}'
+            timeout: 30s
+      - case: 1
+        set:
+          source: http
+          uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/charge_start"
+          method: POST
+          body: ""
+          timeout: 30s
+          cache: 25s
     maxcurrent:
       source: http
       uri: "${TESLA_BLE_PROXY}/api/1/vehicles/${TESLA_VIN}/command/set_charging_amps"
