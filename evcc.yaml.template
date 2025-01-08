@@ -1,4 +1,7 @@
 log: ${LOG}
+network:
+  port: ${PORT}
+
 interval: ${INTERVAL}
 
 mqtt:
