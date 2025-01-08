@@ -25,6 +25,7 @@ site:
 
 loadpoints:
   - title: Garage # display name for UI
+    charger: my_charger
     vehicle: tesla # default vehicle
 
 meters:
