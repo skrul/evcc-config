@@ -78,6 +78,12 @@ meters:
 chargers:
   - name: my_charger
     type: custom
+    power:
+      source: http
+      uri: "${TESLA_BLE_PROXY}:8080/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
+      method: GET
+      jq: .response.response.charge_state.charger_voltage * .response.response.charge_state.charger_actual_current
+      timeout: 30s
     status:
       source: http
       uri: "${TESLA_BLE_PROXY}:8080/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
@@ -120,6 +126,7 @@ vehicles:
     template: tesla-ble
     vin: ${TESLA_VIN}
     url: ${TESLA_BLE_PROXY}
+    capacity: ${TESLA_CAPACITY}
 
 messaging:
   events:
