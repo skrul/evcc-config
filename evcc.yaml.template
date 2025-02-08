@@ -77,48 +77,9 @@ meters:
 
 chargers:
   - name: my_charger
-    type: custom
-    power:
-      source: http
-      uri: "${TESLA_BLE_PROXY}:8080/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
-      method: GET
-      jq: .response.response.charge_state.charger_voltage * .response.response.charge_state.charger_actual_current
-      timeout: 30s
-    status:
-      source: http
-      uri: "${TESLA_BLE_PROXY}:8080/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
-      method: GET
-      jq: >
-        if (.response.response.charge_state.charging_state == "Charging" 
-            and .response.response.charge_state.charger_power > 0) then "C"
-        elif (.response.response.charge_state.charging_state == "Charging") then "B"
-        elif (.response.response.charge_state.charging_state == "Stopped") then "B"
-        elif (.response.response.charge_state.charging_state == "NoPower") then "B"
-        elif (.response.response.charge_state.charging_state == "Complete") then "B"
-        elif (.response.response.charge_state.charging_state == "Starting") then "B"
-        else "A" end
-      timeout: 30s
-    enabled:
-      source: http
-      uri: "${TESLA_BLE_PROXY}:8080/api/1/vehicles/${TESLA_VIN}/vehicle_data?endpoints=charge_state"
-      method: GET
-      jq: (.response.response.charge_state.charging_state == "Charging" 
-           and .response.response.charge_state.charger_power > 0)
-      timeout: 30s
-      cache: 25s
-    enable:
-      source: http
-      uri: "${TESLA_BLE_PROXY}:8080/api/1/vehicles/${TESLA_VIN}/command/{{if .enable}}charge_start{{else}}charge_stop{{end}}"
-      method: POST
-      body: ""
-      timeout: 30s
-      cache: 25s
-    maxcurrent:
-      source: http
-      uri: "${TESLA_BLE_PROXY}:8080/api/1/vehicles/${TESLA_VIN}/command/set_charging_amps"
-      method: POST
-      body: '{"charging_amps": "{{.maxcurrent}}"}'
-      timeout: 30s
+    type: template
+    template: twc3
+    host: ${TWC3_HOST}
 
 vehicles:
   - name: tesla
